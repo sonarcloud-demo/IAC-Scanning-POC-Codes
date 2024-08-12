@@ -1,0 +1,176 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template with security misconfigurations for testing purposes.
+ 
+Resources:
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow all inbound traffic
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+ 
+  MyEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      KeyName: your-key-pair-name # Replace with your key pair name
+      ImageId: ami-0c55b159cbfafe1f0 # Replace with your preferred AMI ID
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp2
+            Encrypted: false
+ 
+  MyS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: my-unsecure-bucket-12345 # Replace with a unique bucket name
+      AccessControl: PublicRead # Publicly accessible
+ 
+  MyIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: MyInsecureRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+Service: ec2.amazonaws.com
+Action: sts:AssumeRole
+Policies:
+        - PolicyName: InsecurePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+ 
+MyIAMUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: my-unsecure-user
+      Policies:
+        - PolicyName: UserPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+      LoginProfile:
+        Password: 'Password1234!' # Insecure password policy
+        PasswordResetRequired: false
+ 
+MyIAMAccessKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+    UserName: !Ref MyIAMUser
+ 
+MyVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+CidrBlock: 10.0.0.0/16
+Tags:
+        - Key: Name
+          Value: MyVPC
+ 
+MySubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+        VpcId: !Ref MyVPC
+    CidrBlock: 10.0.1.0/24
+    AvailabilityZone: us-east-1a # Replace with your preferred availability zone
+    Tags:
+        - Key: Name
+          Value: MySubnet
+ 
+MyInternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: MyInternetGateway
+ 
+AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+##    VpcId: !Ref MyVPC
+##        InternetGatewayId: !Ref MyInternetGateway
+ 
+MyRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+##     VpcId: !Ref MyVPC
+##      Tags:
+        - Key: Name
+          Value: MyRouteTable
+ 
+MyRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+##      RouteTableId: !Ref MyRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+##      GatewayId: !Ref MyInternetGateway
+ 
+MyRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+##      SubnetId: !Ref MySubnet
+##      RouteTableId: !Ref MyRouteTable
+ 
+MyRDSInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceIdentifier: MyRDSInstance
+      AllocatedStorage: 20
+      DBInstanceClass: db.t2.micro
+      Engine: mysql
+      EngineVersion: 5.7
+      MasterUsername: admin
+      MasterUserPassword: Password1234! # Insecure password
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+##        - !Ref MySecurityGroup
+ 
+MyCloudFrontOriginAccessIdentity:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "OAI for my S3 bucket"
+ 
+MyCloudFrontDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Origins:
+          - Id: myS3Origin
+        DomainName: MyS3Bucket.DomainName
+        S3OriginConfig:
+##              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${MyCloudFrontOriginAccessIdentity}
+        DefaultCacheBehavior:
+          TargetOriginId: myS3Origin
+          ViewerProtocolPolicy: allow-all
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
