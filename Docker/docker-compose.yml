@@ -7,7 +7,7 @@ services:
             dockerfile: Dockerfile
         image: message-server:latest
         environment:
-          AWS_ACCESS_KEY: "AKIIHSWWSSSHHAAOO"
+          AWS_ACCESS_KEY_ID: "AKIIHSWWSSSHHAAOO"
           AWS_SECRET_KEY: "gdsgdhsgdfhsvhsfdhsjdbksGIDHSKHDUISTFDVJFKGEUIFTGUJDBFJKGDUIFLDJ"
         ports:
             - 18888:8888
