@@ -1,0 +1,45 @@
+version = 0.1
+[dev]
+[dev.deploy]
+[dev.deploy.parameters]
+stack_name = "interact-documents-unzip-lambda"
+region = "eu-west-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "FunctionName=interact-documents-unzip-lambda",
+    "CodeVersion={{CodeVersion}}",
+    "TriggerS3Bucket=interact-archive-documents-dev",
+    "ArtifactBucket=ng-dev-artifacts",
+    "ApplicationSubnets=subnet-05092fc57fff5ec44,subnet-02f0e211a2f1d28d7",
+    "VpcId=vpc-54070533"
+]
+
+[qa]
+[qa.deploy]
+[qa.deploy.parameters]
+stack_name = "interact-documents-unzip-lambda"
+region = "eu-west-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "FunctionName=interact-documents-unzip-lambda",
+    "CodeVersion={{CodeVersion}}",
+    "TriggerS3Bucket=interact-archive-documents-qa",
+    "ArtifactBucket=ng-qa-artifacts",
+    "ApplicationSubnets=subnet-0958b321a48e4553e,subnet-0e294621684813d62",
+    "VpcId=vpc-071765c5f6a29c7aa"
+]
+
+[stage]
+[stage.deploy]
+[stage.deploy.parameters]
+stack_name = "interact-documents-unzip-lambda"
+region = "us-east-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+    "FunctionName=interact-documents-unzip-lambda",
+    "CodeVersion={{CodeVersion}}",
+    "TriggerS3Bucket=interact-archive-documents-stage",
+    "ArtifactBucket=ng-stage-artifacts-us",
+    "ApplicationSubnets=subnet-00f1620e4ccc2b4c2,subnet-0ac7fd33b957e4f79",
+    "VpcId=vpc-04937197a49d41e96"
+]

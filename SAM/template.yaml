@@ -1,0 +1,266 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'ty-interact-documentum-migration
+
+  Sample SAM Template for documentum
+
+  '
+Globals:
+  Function:
+    Timeout: 180
+    Runtime: python3.8
+    Architectures:
+    - x86_64
+    MemorySize: 128
+    Tags:
+      Name: !Ref FunctionName
+      Product: Interact
+      Application: DocumentumLambda
+
+Parameters:
+    FunctionName:
+        Description: Name of the Lambda function. Please refrain from passing environment in name.
+        Type: String
+    CodeVersion:
+        Description: Code Version or Commit ID to pick from S3 bucket.
+        Type: String
+    TriggerS3Bucket:
+        Description: S3 Bucket name which is being used as Trigger. This bucket will be created.
+        Type: String
+    ArtifactBucket:
+        Description: S3 Bucket name where the artefacts are stored.
+        Type: String
+    ApplicationSubnets:
+        Description: Application Subnets where the function is launched in a VPC.
+        Type: 'List<AWS::EC2::Subnet::Id>'
+    VpcId:
+      Type: 'AWS::EC2::VPC::Id'
+      Description: Select a VPC that allows instances to access the Internet.
+
+Resources:
+#Lambda function creation
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: 
+          Bucket: !Ref ArtifactBucket
+          Key: !Sub
+            - 'SAM/${FunctionName}/${CodeVersion}.zip'
+            - FunctionName: !Ref FunctionName
+              CodeVersion: !Ref CodeVersion
+      Handler: unzip_lambda.lambda_handler
+      FunctionName: !Ref FunctionName
+      Role: !GetAtt 
+        - LambdaIamRole
+        - Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - !GetAtt 
+            - LambdaSecurityGroup
+            - GroupId
+        SubnetIds: !Ref ApplicationSubnets
+      Events:
+        S3Event1:
+          Type: S3
+          Properties:
+            Bucket: 
+              Ref: LambdaEventS3Bucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                - Name: prefix
+                  Value: claim-rebate/FYEVIP/batch/
+                - Name: suffix
+                  Value: .zip
+        S3Event2:
+          Type: S3
+          Properties:
+            Bucket: 
+              Ref: LambdaEventS3Bucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                - Name: prefix
+                  Value: poe/FYEVIP/batch/
+                - Name: suffix
+                  Value: .zip                  
+#S3 bucket creation
+  LambdaEventS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref TriggerS3Bucket
+      Tags: 
+        - Key: "Name"
+          Value: !Ref TriggerS3Bucket
+        - Key: "Application"
+          Value: "DocumentumLambda"
+        - Key: "Product"
+          Value: "Interact"
+
+#IAM role and policy for Lambda
+  LambdaIamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join 
+        - '-'
+        - - !Ref FunctionName
+          - role
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Tags: 
+        - Key: "Name"
+          Value: !Join 
+            - '-'
+            - - !Ref FunctionName
+              - role
+        - Key: "Application"
+          Value: "DocumentumLambda"
+        - Key: "Product"
+          Value: "Interact"
+  LambdaPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Join 
+        - '-'
+        - - !Ref FunctionName
+          - policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 's3:*'
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref TriggerS3Bucket
+              - !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref ArtifactBucket
+              - !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref TriggerS3Bucket
+                  - /*
+              - !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref ArtifactBucket
+                  - /*
+          - Effect: Allow
+            Action:
+              - 's3:ListAllMyBuckets'
+              - 's3:ListBucket'
+              - 's3:HeadBucket'
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:GetRandomPassword'
+              - 'secretsmanager:GetResourcePolicy'
+              - 'secretsmanager:GetSecretValue'
+              - 'secretsmanager:DescribeSecret'
+              - 'secretsmanager:ListSecretVersionIds'
+              - 'secretsmanager:ListSecrets'
+            Resource: '*' #Change this later
+      Roles:
+        - !Ref LambdaIamRole
+
+#Security Group for Lambda
+  LambdaSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Join 
+        - '-'
+        - - !Ref FunctionName
+          - Security-Group
+      GroupName: !Join 
+        - '-'
+        - - !Ref FunctionName
+          - sg
+      VpcId: !Ref VpcId
+      Tags: 
+        - Key: "Name"
+          Value: !Join 
+            - '-'
+            - - !Ref FunctionName
+              - Security-Group
+        - Key: "Application"
+          Value: "DocumentumLambda"
+        - Key: "Product"
+          Value: "Interact"
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP Outbound Traffic from Lambda
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIpv6: '::/0'
+          Description: HTTP Ipv6 Outbound Traffic from Lambda
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS Outbound Traffic from Lambda
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIpv6: '::/0'
+          Description: HTTPS Ipv6 Outbound Traffic from Lambda
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS Outbound Traffic from Lambda
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIpv6: '::/0'
+          Description: HTTPS Ipv6 Outbound Traffic from Lambda
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 0.0.0.0/0
+          Description: To resolve DNS
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIpv6: '::/0'
+          Description: To resolve DNS - Ipv6
+        - IpProtocol: tcp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 0.0.0.0/0
+          Description: To resolve DNS
+        - IpProtocol: tcp
+          FromPort: 53
+          ToPort: 53
+          CidrIpv6: '::/0'
+          Description: To resolve DNS - Ipv6
+
+Outputs:
+  LambdaFunction:
+    Description: Function ARN
+    Value:
+      Fn::GetAtt:
+      - LambdaFunction
+      - Arn
+  LambdaFunctionIamRole:
+    Description: Implicit IAM Role created for function
+    Value:
+      Fn::GetAtt:
+      - LambdaFunction
+      - Arn

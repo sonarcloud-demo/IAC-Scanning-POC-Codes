@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:
+    "{ .Release.Name }": null
+  labels:
+    app:
+      "{ .Chart.Name }": null
+spec:
+  replicas:
+    "{ .Values.replicaCount }": null
+  selector:
+    matchLabels:
+      app:
+        "{ .Chart.Name }": null
+  template:
+    metadata:
+      labels:
+        app:
+          "{ .Chart.Name }": null
+    spec:
+      containers:
+        - name:
+            "{ .Chart.Name }": null
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 80
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: password
+          volumeMounts:
+            - mountPath: /config
+              name: config-volume
+      volumes:
+        - name: config-volume
+          configMap:
+            name:
+              "{ .Release.Name }": null
